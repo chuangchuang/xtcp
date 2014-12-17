@@ -21,8 +21,6 @@ Demo
     import timeit
 
 
-    num = 1
-
     send_message = ["7\r\ntoupper\r\n10\r\nchuangwang\r\n\r\n"]
 
 
