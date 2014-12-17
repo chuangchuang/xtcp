@@ -44,6 +44,8 @@ Demo
 
 Run: `` python client.py``
 
+Return: ``CHUNGWANG``
+
 
 说明
 ----
