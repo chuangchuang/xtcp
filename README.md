@@ -18,28 +18,25 @@ Demo
 
     import logging
     import socket
-    import timeit
 
 
-    send_message = ["7\r\ntoupper\r\n10\r\nchuangwang\r\n\r\n"]
+    send_message = ["7\r\ntoupper\r\n10\r\nchuangwang\r\n\r\n", "7\r\ntoupper\r\n6\r\nchuang\r\n\r\n"]
 
 
     def beanch():
-        _message = send_message[0]
-
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
             sock.connect(("localhost", 8001))
-            sock.sendall(_message)
-            data = sock.recv(2014)
-            logging.warn("recv: {}".format(data))
+            sock.sendall(send_message[0])
+            logging.warn("first recv: {}".format(sock.recv(1024)))
+
         except Exception as e:
             raise e
         finally:
             sock.close()
 
-    timeit.timeit("beanch()", setup="from __main__ import beanch", number=10)
+    beanch()
 ```
 
 Run: `` python client.py``
