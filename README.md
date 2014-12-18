@@ -57,3 +57,8 @@ Return: ``CHUNGWANG``
 - 分割符：``\r\n``
 
 远程调用： ``request_method(request_params)``
+
+版本变化
+-------
+
+- 0.1.0: 添加服务器端异常处理，处理解析数据超时
