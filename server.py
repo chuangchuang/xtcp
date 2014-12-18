@@ -9,7 +9,7 @@ from tornado import gen
 from tornado.tcpserver import TCPServer
 
 from util import xtcp_logger
-from util import XTCPRequestContentException, XTCPHandleRequestTimeoutException
+from util import XTCPRequestContentException
 from util import Storage
 
 
@@ -29,7 +29,7 @@ class XTCPServer(TCPServer):
         self._connections = set()
 
     def handle_stream(self, stream, address):
-        xtcp_logger.info("Connection: {} Start".format(address))
+        xtcp_logger.debug("Connection: {} Start".format(address))
         context = XTCPRequestContext(stream, address)
         conn = XTCPServerConnection(self, stream, context)
         conn.start_handler()
@@ -93,10 +93,10 @@ class XTCPServerRequest(object):
         except XTCPRequestContentException as e:
             self._is_valid_request = False
             self._err_valid_request_message = e.message
-            xtcp_logger.error(e.message)
+            xtcp_logger.debug(e.message)
 
     def finish(self):
-        if self._valid_request:
+        if self._is_valid_request:
             if self.server.server_callback:
                 self.server.server_callback(self, self._request)
 
@@ -112,7 +112,7 @@ class XTCPServerConnection(object):
         self.context = context
         self._read_delimiter = b"\r\n\r\n"
         self._read_max_bytes = 1 * 1024 * 1024  # 1M
-        self._read_timeout = 0.2  # 200 ms
+        self._read_timeout = None  # 200 ms
 
         self._request_message = None
         self._is_handler_request_timeout = False
@@ -125,6 +125,7 @@ class XTCPServerConnection(object):
         self.stream.set_close_callback(callback)
 
     def _on_connection_close(self):
+        xtcp_logger.debug("Connection: {} Closed".format(self.context.address))
         if not self._is_connection_close:
             self._is_connection_close = True
             self.close()
@@ -170,14 +171,17 @@ class XTCPServerConnection(object):
         try:
             future = self.stream.read_until_regex(
                 self._read_delimiter, max_bytes=self._read_max_bytes)
-            try:
-                self._request_message = yield gen.with_timeout(
-                    self.stream.io_loop.time() + self._read_timeout,
-                    future, io_loop=self.stream.io_loop)
-            except gen.TimeoutError as e:
-                xtcp_logger.error("XTCP Handler Request TimeoutError")
-                self._is_handler_request_timeout = True
-                raise gen.Return(False)
+            if self._read_timeout is None:
+                self._request_message = yield future
+            else:
+                try:
+                    self._request_message = yield gen.with_timeout(
+                        self.stream.io_loop.time() + self._read_timeout,
+                        future, io_loop=self.stream.io_loop)
+                except gen.TimeoutError:
+                    xtcp_logger.debug("XTCP Handler Request TimeoutError")
+                    self._is_handler_request_timeout = True
+                    raise gen.Return(False)
         except Exception:
             raise gen.Return(False)
         raise gen.Return(True)

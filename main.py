@@ -22,7 +22,8 @@ def sig_handler(sig, frame):
 
 
 def toupper(name):
-    return name.upper()
+    value = name.upper()
+    return "{}\r\n{}\r\n\r\n".format(len(value), value)
 
 
 def info():
@@ -32,6 +33,7 @@ def info():
 def hander_request(handler, request):
     func = getattr(sys.modules[__name__], request.request_method)
     result = func(request.request_params)
+    logging.warn("({}, {})".format(request, result))
     handler.write(result)
 
 

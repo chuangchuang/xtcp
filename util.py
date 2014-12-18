@@ -23,6 +23,10 @@ class XTCPHandleRequestTimeoutException(Exception):
     pass
 
 
+class XTCPClientConnectionException(Exception):
+    pass
+
+
 class Storage(dict):
 
     def __getattr__(self, name):
