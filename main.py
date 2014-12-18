@@ -29,10 +29,10 @@ def info():
     return "success"
 
 
-def hander_request(request, request_method, request_params):
-    func = getattr(sys.modules[__name__], request_method)
-    result = func(request_params)
-    request.write(result)
+def hander_request(handler, request):
+    func = getattr(sys.modules[__name__], request.request_method)
+    result = func(request.request_params)
+    handler.write(result)
 
 
 if __name__ == "__main__":
