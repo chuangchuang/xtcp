@@ -25,13 +25,13 @@ Demo
         context = Context("localhost", 8001)
         context.concat("toupper", "xiaoxiao", handler_response)
         name = client.acquire(context)
-        xtcp_logger.warn("name: {}".format(name))
+        logging.warn("name: {}".format(name))
 
         # test1
         context = Context("localhost", 8001)
         context.concat("toupper", "wo men dou shi hao hai zi", handler_response)
         name2 = client.acquire(context)
-        xtcp_logger.warn("name2: {}".format(name2))
+        logging.warn("name2: {}".format(name2))
 ```
 
 Run: `` python client.py``
@@ -39,8 +39,8 @@ Run: `` python client.py``
 Return:
 
 ```python
-    WARNING:XTCP.ACCESS:name: --------XIAOXIAO--------
-    WARNING:XTCP.ACCESS:name2: --------WO MEN DOU SHI HAO HAI ZI--------
+    INFO:root:name: --------XIAOXIAO--------
+    INFO:root:name2: --------WO MEN DOU SHI HAO HAI ZI--------
 ```
 
 

@@ -258,10 +258,10 @@ if __name__ == "__main__":
     context = Context("localhost", 8001)
     context.concat("toupper", "xiaoxiao", handler_response)
     name = client.acquire(context)
-    xtcp_logger.warn("name: {}".format(name))
+    logging.info("name: {}".format(name))
 
     # test1
     context = Context("localhost", 8001)
     context.concat("toupper", "wo men dou shi hao hai zi", handler_response)
     name2 = client.acquire(context)
-    xtcp_logger.warn("name2: {}".format(name2))
+    logging.info("name2: {}".format(name2))
