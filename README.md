@@ -27,7 +27,7 @@ Demo
         name = client.acquire(context)
         logging.warn("name: {}".format(name))
 
-        # test1
+        # test2
         context = Context("localhost", 8001)
         context.concat("toupper", "wo men dou shi hao hai zi", handler_response)
         name2 = client.acquire(context)
