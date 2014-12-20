@@ -115,3 +115,6 @@ Demo
 - 0.2.0: 添加XTCPClient，优化代码结构
 - 0.1.0: 添加服务器端异常处理，处理解析数据超时
 
+TODO
+----
+去掉 `tornado` 的 `TCPServer` 和 `TCPClient`
