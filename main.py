@@ -27,10 +27,6 @@ def toupper(name):
     return name.upper()
 
 
-def info(v=None):
-    return "success"
-
-
 def hander_request(request):
     func = getattr(sys.modules[__name__], request.method)
     return func(request.params)
