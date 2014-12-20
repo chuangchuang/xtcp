@@ -2,6 +2,8 @@
 # coding=utf-8
 
 import logging
+logging.basicConfig(level=logging.DEBUG)
+
 import signal
 import sys
 
@@ -22,19 +24,16 @@ def sig_handler(sig, frame):
 
 
 def toupper(name):
-    value = name.upper()
-    return "{}\r\n{}\r\n\r\n".format(len(value), value)
+    return name.upper()
 
 
-def info():
+def info(v=None):
     return "success"
 
 
-def hander_request(handler, request):
-    func = getattr(sys.modules[__name__], request.request_method)
-    result = func(request.request_params)
-    logging.warn("({}, {})".format(request, result))
-    handler.write(result)
+def hander_request(request):
+    func = getattr(sys.modules[__name__], request.method)
+    return func(request.params)
 
 
 if __name__ == "__main__":

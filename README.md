@@ -13,35 +13,35 @@ Demo
 ``client.py`` content:
 
 ```python
-    #!/usr/bin/env python
-    # coding=utf-8
+    if __name__ == "__main__":
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
 
-    import logging
-    import socket
+        def handler_response(message):
+            return "--------{}--------".format(message)
+        client = XTCPClient()
 
+        # test1
+        context = Context("localhost", 8001)
+        context.concat("toupper", "xiaoxiao", handler_response)
+        name = client.acquire(context)
+        xtcp_logger.warn("name: {}".format(name))
 
-    send_message = ["7\r\ntoupper\r\n10\r\nchuangwang\r\n\r\n", "7\r\ntoupper\r\n6\r\nchuang\r\n\r\n"]
-
-
-    def beanch():
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        try:
-            sock.connect(("localhost", 8001))
-            sock.sendall(send_message[0])
-            logging.warn("first recv: {}".format(sock.recv(1024)))
-
-        except Exception as e:
-            raise e
-        finally:
-            sock.close()
-
-    beanch()
+        # test1
+        context = Context("localhost", 8001)
+        context.concat("toupper", "wo men dou shi hao hai zi", handler_response)
+        name2 = client.acquire(context)
+        xtcp_logger.warn("name2: {}".format(name2))
 ```
 
 Run: `` python client.py``
 
-Return: ``CHUNGWANG``
+Return:
+
+```python
+    WARNING:XTCP.ACCESS:name: --------XIAOXIAO--------
+    WARNING:XTCP.ACCESS:name2: --------WO MEN DOU SHI HAO HAI ZI--------
+```
 
 
 说明
@@ -58,4 +58,6 @@ Return: ``CHUNGWANG``
 版本变化
 -------
 
+- 0.2.0: 添加XTCPClient，优化代码结构
 - 0.1.0: 添加服务器端异常处理，处理解析数据超时
+

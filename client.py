@@ -2,24 +2,27 @@
 # coding=utf-8
 
 import collections
-import logging
 import functools
-import re
 import socket
+import sys
+import traceback
 
 from tornado import gen
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
-from tornado.tcpclient import TCPClient
 from tornado.iostream import StreamClosedError
+from tornado.tcpclient import TCPClient
 
+from util import RequestContext, ResponseContext
 from util import Storage
+from util import XTCPConnectionException, XTCPContextException
+from util import xtcp_logger
 
 
 class Context(object):
 
     def __init__(self, host, port, af=socket.AF_INET,
-                 connect_timeout=0.2, waiting_timeout=0.2, request_timeout=0.2):
+                 connect_timeout=0.2, waiting_timeout=0.2, request_timeout=2):
         self.host = host
         self.port = port
         self.af = af
@@ -72,21 +75,26 @@ class XTCPClient(object):
             self.tcp_client.close()
             self._io_loop.close()
 
-    def fetch(self, request):
-        response = self._io_loop.run_sync(functools.partial(self._get, request))
+    def acquire(self, request):
+        response = self._io_loop.run_sync(functools.partial(self._acquire_by_request, request))
         return response
 
-    def _get(self, request):
+    def _acquire_by_request(self, request):
         future = Future()
 
-        def _handle_response(response):
-            response_message = request.user_request_callback(response)
-            future.set_result(response_message)
+        def _handle_response(success, response=None):
+            if success is True:
+                response_message = response
+                if request.user_request_callback is not None:
+                    response_message = request.user_request_callback(response)
+                future.set_result(response_message)
+            else:
+                future.set_exc_info(response)
         request.request_callback = _handle_response
-        self._fetch(request)
+        self._acquire_loop_by_request(request)
         return future
 
-    def _fetch(self, request):
+    def _acquire_loop_by_request(self, request):
         key = object()
         self.queue.append((key, request))
         if not len(self.active) < self.max_clients:
@@ -97,10 +105,10 @@ class XTCPClient(object):
         self.waiting[key] = (request, waiting_timeout_handle)
         self._process_queue()
         if self.queue:
-            logging.debug("max_clients limits reached. {} active, {} queued requests".format(len(self.active), len(self.queue)))
+            xtcp_logger.debug("max_clients limits reached. {} active, {} queued requests".format(len(self.active), len(self.queue)))
 
     def _on_waiting_timeout(self, key):
-        logging.debug("_on_waiting_timeout : {}".format(self.waiting[key]))
+        xtcp_logger.debug("_on_waiting_timeout : {}".format(self.waiting[key]))
         request, callback, waiting_timeout_handle = self.waiting[key]
         self.queue.remove((key, request, callback))
         del self.waiting[key]
@@ -115,7 +123,7 @@ class XTCPClient(object):
             self._handle_request(request, functools.partial(self._release_request, key))
 
     def _handle_request(self, request, release_callback):
-        connection = XTCPClientConnection(
+        connection = _ClientConnection(
             self, io_loop=self._io_loop, request=request, release_callback=release_callback)
         connection.connect()
 
@@ -131,7 +139,7 @@ class XTCPClient(object):
             del self.waiting[key]
 
 
-class XTCPClientConnection(object):
+class _ClientConnection(object):
 
     def __init__(self, client, request, release_callback, io_loop):
         self.client = client
@@ -141,57 +149,56 @@ class XTCPClientConnection(object):
         self.stream = None
 
         self._connection_timeout_handle = None
-        self._request_timeout_handle = None
 
     def connect(self):
         self._connection_timeout_handle = self._io_loop.add_timeout(
             self._io_loop.time() + self.request.connect_timeout, self._on_connection_timeout)
         self.client.tcp_client.connect(
             self.request.host, self.request.port, self.request.af,
-            max_buffer_size=self.client.max_buffer_size, callback=self._on_connect)
+            max_buffer_size=self.client.max_buffer_size, callback=self.on_connect)
 
     def close(self):
         if self.stream is not None and not self.stream.closed():
             self.stream.close()
 
+    def on_connect(self, stream):
+        self._remove_connection_timeout()
+        _on_connect_future = self._on_connect(stream)
+        self._io_loop.add_future(_on_connect_future, lambda f: f.result())
+
+    @gen.coroutine
     def _on_connect(self, stream):
         try:
-            self._remove_connection_timeout()
             if self.request.request_callback is None:
                 stream.close()
                 self.release_callback()
                 return
             self.stream = stream
             self.stream.set_close_callback(self._on_connection_close)
-            if self.request.request_timeout:
-                self._request_timeout_handle = self._io_loop.add_timeout(
-                    self._io_loop.time() + self.request.request_timeout, self._on_request_timeout)
             self.stream.set_nodelay(True)
-
             self._handle_send_request()
-            self._handle_response()
+
+            response = _ClientResponse(self, self.client, self.request, self.stream, self._io_loop)
+            future = response.read()
+            if self.request.request_timeout is None:
+                yield future
+            else:
+                try:
+                    yield gen.with_timeout(
+                        self._io_loop.time() + self.request.request_timeout,
+                        future, io_loop=self._io_loop)
+                except gen.TimeoutError:
+                    raise XTCPConnectionException("XTCP Client: Request Overtime")
         except Exception:
-            self.close()
-            raise
+            traceback.print_exc()
         finally:
-            self._remove_request_timeout()
+            self.close()
             self.release_callback()
 
     def _handle_send_request(self):
         if self.stream is not None and not self.stream.closed():
-            context_request = XTCPRequestContext(self.request.request_message)
-            self.stream.write(context_request.encrypt())
-
-    def _handle_response(self):
-        if self.stream is not None and not self.stream.closed():
-            response = XTCPClientResponse(self, self.client, self.request, self.stream, self._io_loop)
-            response.handle_response()
-
-    def _on_request_timeout(self):
-        logging.debug("Client Reqeust Timeout")
-        if self.stream.error:
-            raise self.stream.error
-        raise XTCPConnectionException("Client Reqeust Timeout")
+            request_context = RequestContext()
+            self.stream.write(request_context.encrypt(self.request.request_message))
 
     def _on_connection_close(self):
         pass
@@ -201,16 +208,11 @@ class XTCPClientConnection(object):
             self._io_loop.remove_timeout(self._connection_timeout_handle)
             self._connection_timeout_handle = None
 
-    def _remove_request_timeout(self):
-        if self._request_timeout_handle is not None:
-            self._io_loop.remove_timeout(self._request_timeout_handle)
-            self._request_timeout_handle = None
-
     def _on_connection_timeout(self):
-        raise XTCPConnectionException("XTCPClientConnection: Connection Timeout")
+        raise XTCPConnectionException("ClientConnection: Connection Timeout")
 
 
-class XTCPClientResponse(object):
+class _ClientResponse(object):
 
     def __init__(self, connection, client, request, stream, io_loop):
         self.connection = connection
@@ -220,95 +222,46 @@ class XTCPClientResponse(object):
         self._io_loop = io_loop
 
         self._read_delimiter = "\r\n\r\n"
-        self._response_context = None
 
-    def handle_response(self):
-        _future_handle_response = self._handle_response()
-        # catch execption
-        self._io_loop.add_future(_future_handle_response, lambda f: f.result())
+    def read(self):
+        future = self._read_response()
+        return future
 
     @gen.coroutine
-    def _handle_response(self):
+    def _read_response(self):
         try:
             future = self.stream.read_until_regex(
                 self._read_delimiter, max_bytes=self.client.max_response_size)
-            response_context = yield future
+            response_message = yield future
 
-            self._response_context = XTCPResponseContext(response_context)
-            real_response_message = self._response_context.decrypt()
+            response_context = ResponseContext()
+            real_response_message = response_context.decrypt(response_message)
 
-            self.request.request_callback(real_response_message)
+            self.request.request_callback(True, real_response_message)
         except StreamClosedError:
-            raise XTCPContextException("Response Content Not Regex")
+            raise XTCPContextException("Response Content not regex or over max response size")
         except Exception:
-            raise
+            self.request.request_callback(False, sys.exc_info())
         finally:
             self.connection.close()
 
 
-class XTCPRequestContext(object):
-
-    def __init__(self, request_message):
-        self.request_message = request_message
-        self._delimiter = "\r\n"
-
-    def encrypt(self):
-        method_len = len(self.request_message.method)
-        params_len = len(self.request_message.params)
-        message = self._delimiter.join(
-            [str(method_len), self.request_message.method, str(params_len), self.request_message.params])
-        return message + self._delimiter + self._delimiter
-
-
-class XTCPResponseContext(object):
-
-    def __init__(self, message, is_client=True):
-        self.message = message
-        self.is_client = is_client
-        self._delimiter = "\r\n"
-        self._reg_length = re.compile(r"^\d{1,}$")
-
-    def _decrypt_client_message(self):
-        response_len, response, _end_1, _end_2 = self.message.split(self._delimiter)
-        response_len = response_len.strip()
-        response = response.strip()
-
-        if not self._reg_length.match(response_len):
-            raise XTCPContextException("Response Length Not Number")
-        else:
-            response_len = int(response_len)
-
-        if response_len != len(response):
-            raise XTCPContextException("Response Content Error")
-        return response
-
-    def decrypt(self):
-        if self.is_client:
-            return self._decrypt_client_message()
-
-
-class XTCPContextException(Exception):
-    pass
-
-
-class XTCPConnectionException(Exception):
-    pass
-
-
 if __name__ == "__main__":
+    import logging
     logging.basicConfig(level=logging.DEBUG)
 
     def handler_response(message):
         return "--------{}--------".format(message)
-
     client = XTCPClient()
+
+    # test1
     context = Context("localhost", 8001)
     context.concat("toupper", "xiaoxiao", handler_response)
+    name = client.acquire(context)
+    xtcp_logger.warn("name: {}".format(name))
 
-    name = client.fetch(context)
-    logging.warn("name: {}".format(name))
-
+    # test1
     context = Context("localhost", 8001)
     context.concat("toupper", "wo men dou shi hao hai zi", handler_response)
-    name2 = client.fetch(context)
-    logging.warn("name2: {}".format(name2))
+    name2 = client.acquire(context)
+    xtcp_logger.warn("name2: {}".format(name2))
