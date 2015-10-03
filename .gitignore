@@ -1,1 +1,8 @@
+.*
 *.pyc
+
+pyxtcp.egg-info/
+build/
+dist/
+
+!.gitignore

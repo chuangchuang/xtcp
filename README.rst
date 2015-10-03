@@ -10,6 +10,36 @@ You can install pyxtcp from PyPI with
     $ pip install pyxtcp
 
 
+协议说明
+-------
+- 协议格式：
+
+  ```
+  {type}{topic_len}"t{topic}"t{body_len}"r"n{body}"r"n
+  ```
+
+- 例子
+
+  ```
+   __ __ __ __ __ __ __ __ __ __ __
+  | - | 4 | " | t | p | i | n | g |
+  | " | t | 5 | " | r | " | n | t |
+  | o | p | i | c | " | r | " | n |
+  __ __ __ __ __ __ __ __ __ __ __ __
+  ```
+
+- 协议说明
+  协议按内容分为两部分：`topic`, `body`
+  协议按协议信息也分为两部分：`header`, `body`
+  `"t` 为 `header` 信息的分隔符
+  `"r"n` 为 `body` 和 `header` 的分隔符和两条消息的分隔符
+
+ - param char type: `-` 表示请求；`=` 表示回复
+ - param int topic_len: `topic` 长度
+ - param string topic: `topic` 内容
+ - param int body_len: `body` 长度
+ - param string body: `body` 内容
+
 Version update
 --------------
 
