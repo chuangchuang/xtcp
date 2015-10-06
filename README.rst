@@ -38,7 +38,8 @@ Protocol
     - `"t` is `header` separator
     - `"r"n` is `body` and `header` separator and two messages delimiter
 
-- Parameter Description
+
+- Parameter Description:
 
  - param char type: `-` is request; `=` is response
  - param int topic_len: `topic` length

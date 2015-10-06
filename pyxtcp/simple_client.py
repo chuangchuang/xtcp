@@ -10,7 +10,7 @@ from tornado.ioloop import IOLoop
 from tornado.iostream import StreamClosedError
 
 from util import CONNECTION_TYPE_IN_RESPONSE
-from util import BasicConnection, RPCConnectionError, RPCInputError, Storage
+from util import BasicConnection, RPCConnectionError, RPCInputError, Storage, RPCMessage
 from util import log, message_utils
 
 
@@ -116,7 +116,8 @@ class _ClientConnection(BasicConnection):
             #: fetch message
             read_status = yield self._read_message(connection_item)
             if read_status:
-                connection_item.callback(self._message)
+                connection_item.callback(RPCMessage(
+                    CONNECTION_TYPE_IN_RESPONSE, self._message.topic, self._message.body))
             else:
                 log.error("Malformed Client Request")
 
@@ -197,7 +198,7 @@ class _ClientConnection(BasicConnection):
         raise gen.Return(True)
 
     def _on_connection_close(self):
-        log.info("Connection Timeout {}".format(self.client_config.address_str))
+        log.debug("Connection Timeout(close) {}".format(self.client_config.address_str))
 
     def close(self):
         if self.is_avaliable_stream():

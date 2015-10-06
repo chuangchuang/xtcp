@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+import inspect
+import functools
 import logging
 
 #: logging handler
-log = logging.getLogger("pyccccccccccc")
-#_log_handler = logging.StreamHandler()
-#_log_formatter = logging.Formatter("[%(levelname)s][][%(asctime)s]: %(message)s")
-#_log_handler.setFormatter(_log_formatter)
-#log.addHandler(_log_handler)
+log = logging.getLogger("pyxtcp")
+_log_handler = logging.StreamHandler()
+_log_formatter = logging.Formatter("[%(levelname)s][][%(asctime)s]: %(message)s")
+_log_handler.setFormatter(_log_formatter)
+log.addHandler(_log_handler)
 
 
 CONNECTION_TYPE_IN_REQUEST = "req"
@@ -32,6 +34,10 @@ class RPCConnectionError(Exception):
     def __init__(self, error):
         super(RPCConnectionError, self).__init__("")
         self.error = error
+
+
+class RPCServiceError(Exception):
+    pass
 
 
 class Storage(dict):
@@ -131,3 +137,67 @@ class BasicConnection(object):
 
     def communicate(self, item):
         raise NotImplementedError()
+
+
+SERVICE_NAME_SUFFIX = "Service"
+
+
+class Service(object):
+    def __init__(self):
+        self._rpc = dict()
+
+    def _get_rpc_service_name(self, frames):
+        log.warn(inspect.getframeinfo(inspect.currentframe()))
+
+    def _is_valid_service_name(self, service_name):
+        if len(service_name) <= len(SERVICE_NAME_SUFFIX):
+            return False
+        return service_name.endswith(SERVICE_NAME_SUFFIX)
+
+    def _get_rpc_class_name_by_frames(self, frames):
+        for item in frames:
+            if self._is_valid_service_name(item[3]):
+                return item[3]
+
+    def with_f_rpc(self, method):
+
+        _last_frame = inspect.currentframe().f_back
+        _last_frame_info = inspect.getframeinfo(_last_frame)
+        _rpc_class_name = None
+        if self._is_valid_service_name(_last_frame_info.function):
+            _rpc_class_name = _last_frame_info.function
+        else:
+            _rpc_class_name = self._get_rpc_class_name_by_frames(inspect.getouterframes(_last_frame))
+
+        if not _rpc_class_name:
+            raise RPCServiceError("rpc class name must reg r'^(.{1,})Service$', method must is staticmethod or classmethod")
+
+        self._rpc["{}.{}".format(_rpc_class_name, method.func_name)] = method
+
+        @functools.wraps(method)
+        def _wrapper(*args, **kwrags):
+            return method(*args, **kwrags)
+        return _wrapper
+
+    def get_rpc_function(self, func_key):
+        if func_key in self._rpc:
+            return self._rpc[func_key]
+
+
+def server_callback_by_json(service, message):
+    import json
+    log.debug("Request Message {}".format(message.__dict__))
+
+    method_name = message.topic
+    kwargs = {}
+    if message.body:
+        kwargs = json.loads(message.body)
+
+    method = service.get_rpc_function(method_name)
+    if not method:
+        raise "rpc function not exist"
+
+    result = method(**kwargs)
+    if not result:
+        result = ""
+    return result

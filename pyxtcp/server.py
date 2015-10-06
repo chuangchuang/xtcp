@@ -9,7 +9,7 @@ from tornado.tcpserver import TCPServer
 from tornado.iostream import StreamClosedError
 
 from .util import CONNECTION_TYPE_IN_REQUEST
-from .util import BasicConnection, RPCInputError, Storage
+from .util import BasicConnection, RPCInputError, Storage, RPCMessage
 from .util import log, message_utils
 
 
@@ -120,7 +120,8 @@ class _ServerConnection(BasicConnection):
                 request_message = client_request.get_message()
 
                 #: execute
-                response_message = self._handle_server_callback(request_message)
+                response_message = self._handle_server_callback(RPCMessage(
+                    CONNECTION_TYPE_IN_REQUEST, request_message["topic"], request_message["body"]))
                 self.send_success_response(response_message)
 
             else:
