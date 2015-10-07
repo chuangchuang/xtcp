@@ -50,6 +50,7 @@ Protocol
 Version update
 --------------
 
+- 1.0.2 添加client_handler, Service, server_callback_by_json
 - 1.0.1 initialize project
 
 
