@@ -29,6 +29,7 @@ def get_version():
 
 install_requires = [
     'tornado',
+    'requests',
 ]
 
 # tests_require = ['mock', 'nose', 'unittest2', 'python-snappy']
