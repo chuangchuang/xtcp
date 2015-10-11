@@ -9,6 +9,10 @@ from tornado.util import ObjectDict
 from .util import server_log
 
 
+class RPCRequestError(Exception):
+    pass
+
+
 class RPCClient(object):
     def __init__(self, address):
         self.address = address
@@ -36,17 +40,20 @@ class _RPCClientServiceHandler(object):
             "v": kwargs_v
         }
 
-        content = requests.get(
-            self._server_address_prefix + "/" + func_name,
-            params=request_params
-        ).text
-        if not content:
-            return content
+        try:
+            content = requests.get(
+                self._server_address_prefix + "/" + func_name,
+                params=request_params
+            ).json()
+
+            data = content["v"]
+        except:
+            raise RPCRequestError("Request invalid")
 
         try:
-            return ObjectDict(json.loads(content))
+            return ObjectDict(data)
         except:
-            return content
+            return data
 
     def __getattr__(self, func):
         try:

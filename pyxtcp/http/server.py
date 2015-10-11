@@ -46,11 +46,10 @@ class _ServerHandler(tornado.web.RequestHandler):
 
         def _func():
             result = exec_method(**kwargs)
-            if isinstance(result, dict):
-                return json.loads(result)
-            if result is None:
-                result = ""
-            return result
+            data = {
+                "v": result
+            }
+            return json.loads(data)
 
         return self.write(_func())
 
