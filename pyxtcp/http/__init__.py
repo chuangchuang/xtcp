@@ -4,3 +4,4 @@
 
 from .server import RPCServer
 from .service import Service
+from .client import RPCClient

@@ -2,9 +2,9 @@
 # coding=utf-8
 
 import logging
-from pyxtcp import SimpleRPCClient
-from pyxtcp.client_handler import BasicRPCClientHandler
+logging.basicConfig(level=logging.INFO)
+from pyxtcp.http import RPCClient
 
+company = RPCClient("localhost:8001").service_name("CompanyService")
 
-company = BasicRPCClientHandler(SimpleRPCClient(host="127.0.0.1", port=8001)).service_name("CompanyService")
-logging.warn(company.get_company_by_company_id(company_id="12121212"))
+logging.info(company.get_company_by_company_id(company_id=7))

@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-import functools
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-from tornado import ioloop
-from pyxtcp import RPCServer
-from pyxtcp.util import Service, server_callback_by_json
+from pyxtcp.http import RPCServer, Service
 service = Service()
 
 
@@ -26,11 +23,10 @@ class CompanyService(object):
 
 
 def main():
-    logging.info(service.__dict__)
     port = 8001
-    app = RPCServer(functools.partial(server_callback_by_json, service))
-    app.listen(port)
-    ioloop.IOLoop.instance().start()
+    app = RPCServer(port, "0.0.0.0")
+    app.add_service(service)
+    app.run()
 
 
 if __name__ == "__main__":
