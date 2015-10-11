@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+import json
 import functools
 import traceback
 
@@ -9,7 +10,7 @@ from tornado.tcpclient import TCPClient
 from tornado.ioloop import IOLoop
 from tornado.iostream import StreamClosedError
 
-from util import CONNECTION_TYPE_IN_RESPONSE
+from util import CONNECTION_TYPE_IN_RESPONSE, CONNECTION_TYPE_IN_REQUEST, RESPONSE_ERROR_TAG
 from util import BasicConnection, RPCConnectionError, RPCInputError, Storage, RPCMessage
 from util import log, message_utils
 
@@ -26,7 +27,7 @@ class _RPCClientConfig(object):
         self.connect_timeout = connect_timeout
 
 
-class TornadoSimpleRPCClient(object):
+class SimpleRPCClient(object):
 
     def __init__(self, host, port, max_clients=5, max_buffer_size=None,
                  max_response_size=None, connect_timeout=0.2):
@@ -228,3 +229,53 @@ class RPCClientItem(object):
         self.header_timeout = header_timeout or 10  # 10s
         self.body_max_bytes = body_max_bytes or 10 * 1024 * 1024  # 10M
         self.body_timeout = body_timeout
+
+
+class RPCClientHandler(object):
+    def __init__(self, client):
+        self._client = client
+
+    def service_name(self, service_name):
+        return _RPCClientServiceHandler(self._client, service_name)
+
+
+class _RPCClientServiceHandler(object):
+    def __init__(self, client, service_name):
+        self._client = client
+        self._service_name = service_name
+
+    @gen.coroutine
+    def ___handler_request(self, func_name, **kwargs):
+        topic_name = "{}.{}".format(self._service_name, func_name)
+        body = ""
+        if kwargs:
+            body = json.dumps(kwargs)
+
+        log.debug("{}({})".format(topic_name, body))
+        request_message = RPCMessage(CONNECTION_TYPE_IN_REQUEST, topic_name, body)
+
+        def _f(_message):
+            log.debug("Request Message {}".format(_message.__dict__))
+
+            status = _message.topic
+            content = _message.body
+            if status == RESPONSE_ERROR_TAG:
+                raise gen.Return(content)
+
+            if not content:
+                raise gen.Return(content)
+
+            v = content
+            try:
+                v = Storage(json.loads(content))
+            except:
+                v = content
+            raise gen.Return(v)
+
+        yield self._client.fetch(RPCClientItem(request_message, _f))
+
+    def __getattr__(self, func):
+        try:
+            return self.__dict__[func]
+        except KeyError:
+            return functools.partial(self.___handler_request, func)

@@ -3,19 +3,18 @@
 
 import functools
 import inspect
-
-from .util import log, RPCServiceError
-
+from .util import service_log
 
 SERVICE_NAME_SUFFIX = "Service"
+
+
+class RPCServiceError(Exception):
+    pass
 
 
 class Service(object):
     def __init__(self):
         self._rpc = dict()
-
-    def _get_rpc_service_name(self, frames):
-        log.warn(inspect.getframeinfo(inspect.currentframe()))
 
     def _is_valid_service_name(self, service_name):
         if len(service_name) <= len(SERVICE_NAME_SUFFIX):
@@ -40,6 +39,7 @@ class Service(object):
         if not _rpc_class_name:
             raise RPCServiceError("rpc class name must reg r'^(.{1,})Service$', method must is staticmethod or classmethod")
 
+        service_log.debug("Key: `{}.{}` to rpc list".format(_rpc_class_name, method.func_name))
         self._rpc["{}.{}".format(_rpc_class_name, method.func_name)] = method
 
         @functools.wraps(method)
@@ -50,3 +50,6 @@ class Service(object):
     def get_rpc_function(self, func_key):
         if func_key in self._rpc:
             return self._rpc[func_key]
+
+    def get_all_rpc_functions(self):
+        return sorted(self._rpc.keys())
