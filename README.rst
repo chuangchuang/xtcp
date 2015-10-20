@@ -63,23 +63,16 @@ Getting Started
 
     .. sourcecode:: python
 
-        #!/usr/bin/env python
-        # coding=utf-8
+            #!/usr/bin/env python
+            # coding=utf-8
 
-        import logging
-        import requests
-        import json
+            import logging
+            logging.basicConfig(level=logging.INFO)
+            from pyxtcp.http import RPCClient
 
-        data = {
-            "company_id": 7,
-        }
+            company = RPCClient("localhost:8001").service_name("CompanyService")
 
-        params = {
-            "v": json.dumps(data)
-        }
-
-        content = requests.get("http://localhost:8001/CompanyService/get_company_by_company_id", params=params)
-        logging.info((content.status_code, content.text))
+            logging.info(company.get_company_by_company_id(company_id=7))
 
 
 Support
