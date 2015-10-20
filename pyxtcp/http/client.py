@@ -5,7 +5,6 @@ import json
 import functools
 import requests
 
-from tornado.util import ObjectDict
 from .util import server_log
 
 
@@ -46,14 +45,9 @@ class _RPCClientServiceHandler(object):
                 data=request_params
             ).json()
 
-            data = content["v"]
+            return content["v"]
         except:
             raise RPCRequestError("Request invalid")
-
-        try:
-            return ObjectDict(data)
-        except:
-            return data
 
     def __getattr__(self, func):
         try:
