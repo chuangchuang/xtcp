@@ -53,8 +53,8 @@ class _ServerHandler(tornado.web.RequestHandler):
 
         return self.write(_func())
 
-    def post(self):
-        return self.get()
+    def post(self, topic=None, method=None):
+        return self.get(topic, method)
 
 
 class RPCServer:
