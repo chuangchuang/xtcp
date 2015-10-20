@@ -41,9 +41,9 @@ class _RPCClientServiceHandler(object):
         }
 
         try:
-            content = requests.get(
+            content = requests.post(
                 self._server_address_prefix + "/" + func_name,
-                params=request_params
+                data=request_params
             ).json()
 
             data = content["v"]
