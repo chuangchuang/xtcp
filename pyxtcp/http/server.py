@@ -54,7 +54,7 @@ class _ServerHandler(tornado.web.RequestHandler):
         return self.write(_func())
 
     def post(self):
-        raise RPCMethodError("method POST not implement")
+        return self.get()
 
 
 class RPCServer:
