@@ -45,7 +45,12 @@ class _ServerHandler(tornado.web.RequestHandler):
             raise RPCInputError("{} not exist".format(exec_method_key))
 
         def _func():
-            result = exec_method(**kwargs)
+            result = None
+            if kwargs:
+                result = exec_method(**kwargs)
+            else:
+                result = exec_method()
+
             data = {
                 "v": result
             }
