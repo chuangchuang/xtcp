@@ -49,7 +49,7 @@ class _ServerHandler(tornado.web.RequestHandler):
             data = {
                 "v": result
             }
-            return json.loads(data)
+            return json.dumps(data)
 
         return self.write(_func())
 
