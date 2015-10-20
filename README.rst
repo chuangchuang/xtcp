@@ -22,6 +22,7 @@ Protocol
 Version update
 --------------
 
+- 1.1.2 稳定，测试
 - 1.1.1 统一 HTTP-based RPC 返回信息
 - 1.1.0 添加 HTTP-based RPC
 - 1.0.2 添加client_handler, Service, server_callback_by_json
