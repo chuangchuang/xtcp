@@ -5,6 +5,7 @@ import json
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
+import traceback
 from tornado.util import ObjectDict
 
 from .util import server_log
@@ -46,14 +47,22 @@ class _ServerHandler(tornado.web.RequestHandler):
 
         def _func():
             result = None
-            if kwargs:
-                result = exec_method(**kwargs)
-            else:
-                result = exec_method()
+            status = True
+
+            try:
+                if kwargs:
+                    result = exec_method(**kwargs)
+                else:
+                    result = exec_method()
+            except:
+                result = traceback.format_exc()
+                status = False
 
             data = {
-                "v": result
+                "v": result,
+                "s": status
             }
+
             return json.dumps(data)
 
         return self.write(_func())

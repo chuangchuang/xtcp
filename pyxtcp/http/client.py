@@ -45,9 +45,14 @@ class _RPCClientServiceHandler(object):
                 data=request_params
             ).json()
 
-            return content["v"]
+            result = content["v"]
+            status = content["s"]
         except:
             raise RPCRequestError("Request invalid")
+
+        if status:
+            return result
+        raise RPCRequestError("Request Error, %s " % (result,))
 
     def __getattr__(self, func):
         try:
